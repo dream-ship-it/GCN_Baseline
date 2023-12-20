@@ -68,6 +68,7 @@ def get_structural_encoding(edges, nnodes, str_enc_dim=16):
 
 
 def load_data(dataset_name):
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
 
     path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.', 'data', dataset_name)
 
@@ -106,6 +107,7 @@ def load_data(dataset_name):
 
 
     data = dataset[0]
+    data = data.to(device)
 
     edges = remove_self_loops(data.edge_index)[0]
 

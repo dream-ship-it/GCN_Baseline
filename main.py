@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 from torch_geometric.nn import GATConv
@@ -15,6 +16,7 @@ class GCN(torch.nn.Module):
         self.conv2 = GCNConv(hidden_channels, nclasses)
 
     def forward(self, x, edge_index):
+        x = F.dropout(x, training=self.training)
         x = F.relu(self.conv1(x, edge_index))
         x = F.dropout(x, training=self.training)
         x = self.conv2(x, edge_index)
@@ -61,21 +63,21 @@ for dataset_name in dataset:
     results = []
     num_layers = 2
     best_acc = 0
-    epochs = 100
-    hid_dim = 128
+    epochs = 200
+    hid_dim = 16
 
-    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     num_features = nfeats
 
     test_accs = []  # List to store test accuracy of each run
 
     best_model = 0
 
-    for runs in range(10):  # Perform 10 runs
+    for runs in range(100):  # Perform 10 runs
 
         best_acc = 0
         model = GCN(num_features=num_features, hidden_channels=hid_dim, nclasses=nclasses).to(device)
-        optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=5e-4)
+        optimizer = torch.optim.Adam(model.parameters(), lr=0.01, weight_decay=5e-4)
 
 
         def train():

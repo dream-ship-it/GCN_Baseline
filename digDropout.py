@@ -52,7 +52,11 @@ dataset = ['cora']
 #dataset = ['cora','pubmed','citeseer','photo','computers','actor','cs','cornell','texas','wisconsin','chameleon','physics','wikics','squirrel']
 for dataset_name in dataset:
     #dataset_name = 'photo'
-
+    '''
+        对load_data的return解释备注
+        features,
+        nfeats
+    '''
     features, edges, train_mask, val_mask, test_mask, labels, nnodes, nfeats, nclasses = load_data(dataset_name)
     train_mask = train_mask[:, 0]
     val_mask = val_mask[:, 0]
