@@ -73,7 +73,7 @@ def load_data(dataset_name):
     path = os.path.join(os.path.dirname(os.path.realpath(__file__)), '.', 'data', dataset_name)
 
     if dataset_name in ['cora', 'citeseer', 'pubmed']:
-        dataset = Planetoid(path, dataset_name)#, transform=T.NormalizeFeatures())
+        dataset = Planetoid(path, dataset_name, transform=T.NormalizeFeatures())#, transform=T.NormalizeFeatures())
     elif dataset_name in ['chameleon']:
         dataset = WikipediaNetwork(path, dataset_name)
     elif dataset_name in ['squirrel']:
@@ -100,7 +100,8 @@ def load_data(dataset_name):
         test_mask = torch.from_numpy(split_idx["test"])
         nnodes, nfeats = x.shape
         nclasses = (y.max() + 1).item()
-        edges = remove_self_loops(edge_index)[0]
+        # edges = remove_self_loops(edge_index)[0]
+        edges = edge_index
         features = x
         return features, edges, train_mask, val_mask, test_mask, labels, nnodes, nfeats, nclasses
 
