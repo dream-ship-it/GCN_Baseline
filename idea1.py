@@ -4,31 +4,55 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
-from torch_geometric.nn import GATConv
 from torch_geometric.utils import to_dense_adj
 import csv
 from data_loader import load_data
 
+# class GCN(torch.nn.Module):
+#     def __init__(self, num_features, hidden_channels, nclasses):
+#         super(GCN, self).__init__()
+#         self.conv1 = GCNConv(num_features, hidden_channels)
+#         self.conv2 = GCNConv(hidden_channels, nclasses)
+#
+#     def forward(self, x, edge_index, edge_weight=None):
+#         x = F.dropout(x, p=0.5, training=self.training)
+#         x = self.conv1(x, edge_index, edge_weight).relu()
+#         x = F.dropout(x, p=0.5, training=self.training)
+#         x = self.conv2(x, edge_index, edge_weight)
+#         return x
+
 class GCN(torch.nn.Module):
-    def __init__(self, num_features, hidden_channels, nclasses):
+    # hidden_layers： GNN的层数，GRU层数 = GNN + 1
+    def __init__(self, num_features, hidden_channels, hidden_layers, nclasses):
         super(GCN, self).__init__()
-        self.conv1 = GCNConv(num_features, hidden_channels)
-        self.conv2 = GCNConv(hidden_channels, nclasses)
+        self.conv = nn.Sequential()
+        self.gru = nn.Sequential()
+        self.hidden_channels = hidden_channels
+        for i in range(hidden_layers):
+            if i == 0:
+                self.conv.append(GCNConv(num_features, hidden_channels))
+                self.gru.append(nn.GRUCell(num_features, hidden_channels))
+            self.conv.append(GCNConv(hidden_channels, hidden_channels))
+            self.gru.append(nn.GRUCell(hidden_channels, hidden_channels))
+        self.gru.append(nn.GRUCell(hidden_channels, hidden_channels))
+        self.fc = nn.Linear(hidden_channels, nclasses)
 
     def forward(self, x, edge_index, edge_weight=None):
+        h = torch.zeros(x.size(0), self.hidden_channels, device=x.device)
         x = F.dropout(x, p=0.5, training=self.training)
-        x = self.conv1(x, edge_index, edge_weight).relu()
-        x = F.dropout(x, p=0.5, training=self.training)
-        x = self.conv2(x, edge_index, edge_weight)
-        return x
-
-dataset = ['cora']
+        h = self.gru[0](x, h)
+        for i in range(len(self.conv)):
+            x = self.conv[i](x, edge_index, edge_weight).relu()
+            h = self.gru[i+1](x, h)
+            x = F.dropout(x, p=0.5, training=self.training)
+        out = self.fc(h)
+        return out
 
 # 设置随机数生成器的种子
 seed = 42
 torch.manual_seed(seed)
-
-#dataset = ['cora','pubmed','citeseer','photo','computers','actor','cs','cornell','texas','wisconsin','chameleon','physics','wikics','squirrel']
+dataset = ['cora', 'citeseer', 'pubmed']
+# dataset = ['cora','pubmed','citeseer','photo','computers','actor','cs','cornell','texas','wisconsin','chameleon','physics','wikics','squirrel']
 for dataset_name in dataset:
 
     features, edges, train_mask, val_mask, test_mask, labels, nnodes, nfeats, nclasses = load_data(dataset_name)
@@ -41,8 +65,10 @@ for dataset_name in dataset:
     best_acc = 0
     epochs = 200
     hid_dim = 16
+    hidden_layers = 2
+
     early_stop = 10
-    lr = 0.01
+    lr = 0.001
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     num_features = nfeats
@@ -54,11 +80,8 @@ for dataset_name in dataset:
     for runs in range(100):  # Perform 10 runs
 
         best_acc = 0
-        model = GCN(num_features=num_features, hidden_channels=hid_dim, nclasses=nclasses).to(device)
-        optimizer = torch.optim.Adam([
-            dict(params=model.conv1.parameters(), weight_decay=5e-4),
-            dict(params=model.conv2.parameters(), weight_decay=0)
-        ], lr=lr)  # Only perform weight-decay on first convolution.
+        model = GCN(num_features=num_features, hidden_channels=hid_dim, hidden_layers=hidden_layers, nclasses=nclasses).to(device)
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr)  # Only perform weight-decay on first convolution.
 
 
         def train():
@@ -120,7 +143,7 @@ for dataset_name in dataset:
 
         if best_acc > best_model:
             best_model = best_acc
-            torch.save(model, "gcn_res/" + res_file)
+            torch.save(model, "gated_res/" + res_file)
         print(best_model)
         test_accs.append(best_acc)
 
@@ -130,7 +153,7 @@ for dataset_name in dataset:
 
     results.append([dataset_name, epochs, hid_dim, avg_test_acc, std_test_acc, num_layers])
 
-    with open('res/results_gcn.csv', 'a', newline='') as csvfile:
+    with open('res/results_gated.csv', 'a', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
         csv_writer.writerows(results)
         csv_writer.writerows('\n')

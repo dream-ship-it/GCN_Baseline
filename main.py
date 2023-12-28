@@ -49,13 +49,13 @@ class MLP(torch.nn.Module):
         x = self.layer2(x)
         return F.log_softmax(x, dim=1)
 
-dataset = ['cora']
+# dataset = ['cora']
 
 # 设置随机数生成器的种子
 seed = 42
 torch.manual_seed(seed)
-
-#dataset = ['cora','pubmed','citeseer','photo','computers','actor','cs','cornell','texas','wisconsin','chameleon','physics','wikics','squirrel']
+# dataset = ['cora','pubmed','citeseer','photo','computers','actor','cs','cornell']
+dataset = ['cora','pubmed','citeseer','photo','computers','actor','cs','cornell','texas','wisconsin','chameleon','physics','wikics','squirrel']
 for dataset_name in dataset:
 
     features, edges, train_mask, val_mask, test_mask, labels, nnodes, nfeats, nclasses = load_data(dataset_name)
