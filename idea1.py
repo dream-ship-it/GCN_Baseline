@@ -21,30 +21,53 @@ from data_loader import load_data
 #         x = self.conv2(x, edge_index, edge_weight)
 #         return x
 
+# class GCN(torch.nn.Module):
+#     # hidden_layers： GNN和GRU的层数
+#     def __init__(self, num_features, hidden_channels, h_gru, hidden_layers, nclasses):
+#         super(GCN, self).__init__()
+#         self.convs = nn.Sequential()
+#         self.gru = nn.GRUCell(hidden_channels, h_gru)
+#         self.h_gru = h_gru
+#         for i in range(hidden_layers):
+#             if i == 0:
+#                 self.convs.append(GCNConv(num_features, hidden_channels))
+#             self.convs.append(GCNConv(hidden_channels, hidden_channels))
+#
+#         self.fc = nn.Linear(h_gru, nclasses)
+#
+#     def forward(self, x, edge_index, edge_weight=None):
+#         h = torch.randn(x.size(0), self.h_gru, device=x.device)
+#         for conv in self.convs:
+#             # x = F.dropout(x, p=0.5, training=self.training)
+#             x = conv(x, edge_index, edge_weight).relu()
+#             h = self.gru(x, h)
+#
+#         out = self.fc(h)
+#         return out
+
 class GCN(torch.nn.Module):
-    # hidden_layers： GNN的层数，GRU层数 = GNN + 1
-    def __init__(self, num_features, hidden_channels, hidden_layers, nclasses):
+    # hidden_layers： GNN和GRU的层数
+    def __init__(self, num_features, hidden_channels, h_gru, hidden_layers, nclasses):
         super(GCN, self).__init__()
-        self.conv = nn.Sequential()
-        self.gru = nn.Sequential()
-        self.hidden_channels = hidden_channels
+        self.convs = nn.Sequential()
+        self.gru = nn.GRUCell(hidden_channels, h_gru)
+        self.h_gru = h_gru
         for i in range(hidden_layers):
-            if i == 0:
-                self.conv.append(GCNConv(num_features, hidden_channels))
-                self.gru.append(nn.GRUCell(num_features, hidden_channels))
-            self.conv.append(GCNConv(hidden_channels, hidden_channels))
-            self.gru.append(nn.GRUCell(hidden_channels, hidden_channels))
-        self.gru.append(nn.GRUCell(hidden_channels, hidden_channels))
-        self.fc = nn.Linear(hidden_channels, nclasses)
+            # if i == 0:
+            #     self.convs.append(GCNConv(num_features, hidden_channels))
+            self.convs.append(GCNConv(hidden_channels, hidden_channels))
+        self.lin = nn.Linear(num_features, hidden_channels)
+        self.fc = nn.Linear(h_gru, nclasses)
 
     def forward(self, x, edge_index, edge_weight=None):
-        h = torch.zeros(x.size(0), self.hidden_channels, device=x.device)
-        x = F.dropout(x, p=0.5, training=self.training)
-        h = self.gru[0](x, h)
-        for i in range(len(self.conv)):
-            x = self.conv[i](x, edge_index, edge_weight).relu()
-            h = self.gru[i+1](x, h)
-            x = F.dropout(x, p=0.5, training=self.training)
+        h = torch.randn(x.size(0), self.h_gru, device=x.device)
+        x = self.lin(x).relu()
+        h = self.gru(x, h)
+        for conv in self.convs:
+            # x = F.dropout(x, p=0.5, training=self.training)
+            x = conv(x, edge_index, edge_weight).relu()
+            h = self.gru(x, h)
+
         out = self.fc(h)
         return out
 
@@ -64,9 +87,9 @@ for dataset_name in dataset:
     num_layers = 2
     best_acc = 0
     epochs = 200
-    hid_dim = 16
+    hid_dim = 256
     hidden_layers = 2
-
+    h_gru = 128
     early_stop = 10
     lr = 0.001
 
@@ -80,7 +103,8 @@ for dataset_name in dataset:
     for runs in range(100):  # Perform 10 runs
 
         best_acc = 0
-        model = GCN(num_features=num_features, hidden_channels=hid_dim, hidden_layers=hidden_layers, nclasses=nclasses).to(device)
+        model = GCN(num_features=num_features, hidden_channels=hid_dim, h_gru=h_gru,
+                    hidden_layers=hidden_layers, nclasses=nclasses).to(device)
         optimizer = torch.optim.Adam(model.parameters(), lr=lr)  # Only perform weight-decay on first convolution.
 
 
